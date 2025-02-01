@@ -6,8 +6,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set compiler flags for Release and Debug
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG")
 
 project(CHIP8)
 
@@ -35,7 +35,7 @@ list(APPEND LIBS SDL3::SDL3)
 CPMAddPackage("gh:g-truc/glm#3c18b0f")
 list(APPEND LIBS glm::glm-header-only)
 
-add_executable(CHIP8 src/Chip8.cpp)
+add_executable(CHIP8 src/main.cpp src/Chip8.cpp  "src/Chip8.h")
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_include_directories(${PROJECT_NAME} PRIVATE ${SDL3_SOURCE_DIR}/include)
 
