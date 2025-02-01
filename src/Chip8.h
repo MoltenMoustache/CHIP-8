@@ -49,12 +49,12 @@ private:
 	// display (64 x 32, or 128x64 for SUPER-CHIP)
 	std::array<bool, DISPLAY_WIDTH* DISPLAY_HEIGHT> mDisplay = { 0 };
 
-	uint16_t mIndexRegister;
+	uint16_t mIndexRegister = 0;
 	uint16_t mProgramCounter = 0x200;
 	std::stack<uint16_t> mAddressStack;
 
-	uint8_t mDelayTimer;
-	uint8_t mSoundTimer;
+	uint8_t mDelayTimer = 0;
+	uint8_t mSoundTimer = 0;
 
 	const uint16_t mStartingProgramCounter = 0x200;
 	uint8_t mRomSize = 0;

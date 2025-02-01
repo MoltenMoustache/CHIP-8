@@ -2,13 +2,12 @@
 #include <iostream>
 
 #include <vector>
-#include <bitset>
 
 #include <fstream>
-#include <iterator>
 #include <algorithm>
 #include <sstream>
-#include <iomanip>
+
+#include <cassert>
 
 #ifdef DEBUG
 #include <imgui.h>
@@ -38,6 +37,13 @@ const std::array<uint8_t, 80> gDefaultFont =
 	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+std::string GetHexString(uint16_t num)
+{
+	std::stringstream output;
+	output << std::hex << num;
+	return output.str();
+}
+
 CHIP::CHIP()
 {
 	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
@@ -50,7 +56,7 @@ CHIP::CHIP()
 	// - 7XNN(add value to register VX)
 	// - ANNN(set index register I)
 	// - DXYN(display / draw)
-	mInstructions.emplace(0x00E0, [this](const uint16_t opcode) { OpCode_ClearScreen(opcode); });			// 00E0
+	mInstructions.emplace(0x00E0, [this](const uint16_t opcode) { OpCode_ClearScreen(opcode); });		// 00E0
 	mInstructions.emplace(0x1000, [this](const uint16_t opcode) { OpCode_Jump(opcode); });				// 1NNN
 	mInstructions.emplace(0x6000, [this](const uint16_t opcode) { OpCode_SetVxToNn(opcode); });			// 6XNN
 	mInstructions.emplace(0xA000, [this](const uint16_t opcode) { OpCode_SetIndexRegister(opcode); });	// ANNN
@@ -79,11 +85,6 @@ uint16_t CHIP::Fetch()
 	// Each instruction is two bytes, we want to shift the first byte to the most-significant slot, so we can fit in the second byte.
 	const uint16_t instruction = (static_cast<uint16_t>(mMemory[mProgramCounter]) << 8) ^ static_cast<uint16_t>(mMemory[mProgramCounter + 1]);
 
-	std::cout << "=== FETCH ===\n";
-	std::cout << "First byte:" << std::bitset<8>(mMemory[mProgramCounter]) <<
-		std::endl << "Second byte: " << std::bitset<8>(mMemory[mProgramCounter + 1]) <<
-		std::endl << "Instruction: " << std::bitset<16>(instruction) << std::endl;
-
 	// Read two successive bytes and combine into one 16-bit instruction
 	mProgramCounter += 2;
 	return instruction;
@@ -93,10 +94,6 @@ uint16_t CHIP::Decode(uint16_t instruction)
 {
 	// Grab the first nibble and determine the opcode
 	const uint8_t nibble = instruction >> 12;
-
-	std::cout << "=== DECODE ===\n";
-	std::cout << std::bitset<4>(nibble) << std::endl;
-
 	switch (nibble)
 	{
 	// Any case starting with 0x0 is explicit, so the entire instruction is the opcode.
@@ -117,27 +114,18 @@ uint16_t CHIP::Decode(uint16_t instruction)
 
 void CHIP::Execute(uint16_t opcode, uint16_t instruction)
 {
-	// Get X, Y, NN, NNN and pass to funcs
-	std::cout << "=== EXECUTE ===\n";
-	std::cout << "OpCode: " << std::bitset<16>(opcode) << std::endl;
-	std::cout << "Instruction: " << std::bitset<16>(instruction) << std::endl;
-
-	auto func = mInstructions.at(opcode);
-	if (func)
-	{
-		func(instruction);
-	}
-	else
-	{
-		std::cout << "Error: Failed to find matching opcode executor.\n";
-	}
+	assert(mInstructions.contains(opcode), "Opcode not found in instruction set.");
+	auto& func = mInstructions.at(opcode);
+	func(instruction);
 }
 
+// Used to lookup the variable register at this position
 uint8_t GetX(uint16_t instruction)
 {
 	return (instruction & 0x0F00) >> 8;
 }
 
+// Used to lookup the variable register at this position
 uint8_t GetY(uint16_t instruction)
 {
 	return (instruction & 0x00F0) >> 4;
@@ -162,42 +150,40 @@ uint16_t GetNNN(uint16_t instruction)
 #ifdef DEBUG
 void CHIP::DrawDebug()
 {
-	constexpr int bytesPerRow = 8; // Number of bytes per row
-	int numRows = static_cast<int>(mMemory.size() + bytesPerRow - 1) / bytesPerRow; // Calculate total rows
+	ImGui::Begin("CHIP-8 Debug Controls");
+	if (ImGui::Button("Process Next Instruction"))
+	{
+		Process();
+	}
+	ImGui::End();
 
-	// Start ImGui window
-	ImGui::Begin("Hex Viewer");
+	if (mRomSize > 0)
+	{
+		const size_t bytesPerRow = 8;
+		ImGui::Begin("ROM Viewer");
 
-	// Loop through rows
-	for (int row = 0; row < numRows; ++row) {
-		std::ostringstream rowStream;
-
-		const bool fontRows = (row * bytesPerRow < 0x200);
-		const bool romRows = (row * bytesPerRow < 0x200 + mRomSize);
-
-		if (fontRows)
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.5f, 1.0f));
-		else if (romRows)
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
-
-		// Loop through columns in the row
-		for (int col = 0; col < bytesPerRow; ++col) {
-			int index = row * bytesPerRow + col;
-			if (index < static_cast<int>(mMemory.size())) {
-				// Add byte in hex format
-				rowStream << std::hex << static_cast<int>(mMemory[index]) << " ";
+		// Loop through rows
+		for (int i = 0; i < mRomSize; ++i)
+		{
+			const size_t romIndex = mStartingProgramCounter + i;
+			const bool isCurrentPC = mProgramCounter == romIndex;
+			if (i % bytesPerRow != 0)
+			{
+				ImGui::SameLine();
 			}
+
+			if (isCurrentPC)
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+			ImGui::Text("%s", GetHexString(mMemory[romIndex]).c_str());
+
+			if (isCurrentPC)
+				ImGui::PopStyleColor();
 		}
 
-		// Display the row in ImGui
-		ImGui::Text("%s", rowStream.str().c_str());
-
-		if (fontRows || romRows)
-			ImGui::PopStyleColor();
+		// End ImGui window
+		ImGui::End();
 	}
-
-	// End ImGui window
-	ImGui::End();
 }
 #endif
 

@@ -56,28 +56,6 @@ namespace Debug {
 		ImGui_ImplSDLRenderer3_NewFrame();
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
-		ImGui::ShowDemoWindow(&gImGuiOpen);
-		{
-			static float f = 0.0f;
-			static int counter = 0;
-
-			ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-			ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-			ImGui::Checkbox("Demo Window", &gImGuiOpen);      // Edit bools storing our window open/close state
-			ImGui::Checkbox("Another Window", &gImGuiOpen);
-
-			ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-			ImGui::ColorEdit3("clear color", (float*)&gClearColour); // Edit 3 floats representing a color
-
-			if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-				counter++;
-			ImGui::SameLine();
-			ImGui::Text("counter = %d", counter);
-
-			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-			ImGui::End();
-		}
 	}
 
 	static void Debug_Shutdown()
@@ -103,17 +81,19 @@ void Update()
 			gDone = 1;
 		}
 	}
-
-#ifdef DEBUG
-	Debug::Debug_Draw();
-#endif
-
-	SDL_RenderTexture(gSDLRenderer, gSDLTexture, NULL, NULL);
-	SDL_RenderPresent(gSDLRenderer);
 }
 
 void Render(uint64_t ticks)
 {
+#ifdef DEBUG
+	ImGui::Render();
+#endif
+	SDL_RenderClear(gSDLRenderer);
+
+#ifdef DEBUG
+	ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), gSDLRenderer);
+#endif
+	SDL_RenderPresent(gSDLRenderer);
 }
 
 int main()
@@ -147,10 +127,8 @@ int main()
 	{
 		Update();
 #ifdef DEBUG
+		Debug::Debug_Draw();
 		emu->DrawDebug();
-
-		ImGui::Render();
-		ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), gSDLRenderer);
 #endif
 		Render(SDL_GetTicks());
 	}
