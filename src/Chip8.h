@@ -26,12 +26,18 @@ public:
 	void DrawDebug();
 #endif
 
+	inline const uint32_t* GetDisplay() { return mDisplay.data(); }
+	inline const uint8_t GetDisplayWidth() { return DISPLAY_WIDTH; }
+	inline const uint8_t GetDisplayHeight() { return DISPLAY_HEIGHT; }
+
 private:
 	// Op Codes
 	void OpCode_ClearScreen(uint16_t instruction);			// 00E0
 	void OpCode_Jump(uint16_t instruction);					// 1NNN
 	void OpCode_SetVxToNn(uint16_t instruction);			// 6XNN
 	void OpCode_SetIndexRegister(uint16_t instruction);		// ANNN
+	void OpCode_AddNnToVx(uint16_t instruction);			// 7XNN
+	void OpCode_Display(uint16_t instruction);				// DXYN
 
 	void OpCode_PushSubroutine(uint16_t instruction);		// 00EE
 	void OpCode_PopSubroutine(uint16_t instruction);		// 2NNN
@@ -47,7 +53,9 @@ private:
 	std::array<uint8_t, 16> mVariableRegisters = { 0 };
 
 	// display (64 x 32, or 128x64 for SUPER-CHIP)
-	std::array<bool, DISPLAY_WIDTH* DISPLAY_HEIGHT> mDisplay = { 0 };
+	// Consuming more memory and using a 32 bit uint here makes SDL texture manipulation easier
+	// Each element will either be 0x00000000 (off) or 0xFFFFFFFF (on)
+	std::array<uint32_t, DISPLAY_WIDTH * DISPLAY_HEIGHT> mDisplay = { 0 };
 
 	uint16_t mIndexRegister = 0;
 	uint16_t mProgramCounter = 0x200;

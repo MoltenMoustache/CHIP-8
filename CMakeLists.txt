@@ -35,7 +35,7 @@ list(APPEND LIBS SDL3::SDL3)
 CPMAddPackage("gh:g-truc/glm#3c18b0f")
 list(APPEND LIBS glm::glm-header-only)
 
-add_executable(CHIP8 src/main.cpp src/Chip8.cpp  "src/Chip8.h")
+add_executable(CHIP8 src/main.cpp src/Chip8.cpp  "src/Chip8.h" src/Display.cpp src/Display.h)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_include_directories(${PROJECT_NAME} PRIVATE ${SDL3_SOURCE_DIR}/include)
 

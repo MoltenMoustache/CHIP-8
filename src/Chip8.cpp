@@ -37,13 +37,6 @@ const std::array<uint8_t, 80> gDefaultFont =
 	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-std::string GetHexString(uint16_t num)
-{
-	std::stringstream output;
-	output << std::hex << num;
-	return output.str();
-}
-
 CHIP::CHIP()
 {
 	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
@@ -56,10 +49,13 @@ CHIP::CHIP()
 	// - 7XNN(add value to register VX)
 	// - ANNN(set index register I)
 	// - DXYN(display / draw)
+	mInstructions.reserve(64);
 	mInstructions.emplace(0x00E0, [this](const uint16_t opcode) { OpCode_ClearScreen(opcode); });		// 00E0
 	mInstructions.emplace(0x1000, [this](const uint16_t opcode) { OpCode_Jump(opcode); });				// 1NNN
 	mInstructions.emplace(0x6000, [this](const uint16_t opcode) { OpCode_SetVxToNn(opcode); });			// 6XNN
 	mInstructions.emplace(0xA000, [this](const uint16_t opcode) { OpCode_SetIndexRegister(opcode); });	// ANNN
+	mInstructions.emplace(0x7000, [this](const uint16_t opcode) { OpCode_AddNnToVx(opcode); });			// 7XNN
+	mInstructions.emplace(0xD000, [this](const uint16_t opcode) { OpCode_Display(opcode); });			// DXYN
 	mInstructions.emplace(0x2000, [this](const uint16_t opcode) { OpCode_PushSubroutine(opcode); });
 	mInstructions.emplace(0x00EE, [this](const uint16_t opcode) { OpCode_PopSubroutine(opcode); });
 }
@@ -92,6 +88,9 @@ uint16_t CHIP::Fetch()
 
 uint16_t CHIP::Decode(uint16_t instruction)
 {
+	// Would like to find a solution that removes these conditionals from the main loop
+	// Multiple arrays with the opcode as indexes?
+
 	// Grab the first nibble and determine the opcode
 	const uint8_t nibble = instruction >> 12;
 	switch (nibble)
@@ -105,7 +104,7 @@ uint16_t CHIP::Decode(uint16_t instruction)
 	// These opcodes are made distinct by literal 1st, 3rd and 4th nibbles
 	case 0xF:
 	case 0xE:
-		return (instruction & 0x1011);
+		return (instruction & 0xF0FF);
 	// For these cases, the other nibbles are instructions and the first nibble is the op code.
 	default:
 		return (instruction & 0xF000);
@@ -144,6 +143,13 @@ uint8_t GetNN(uint16_t instruction)
 uint16_t GetNNN(uint16_t instruction)
 {
 	return instruction & 0x0FFF;
+}
+
+std::string GetHexString(uint16_t num)
+{
+	std::stringstream output;
+	output << std::hex << num;
+	return output.str();
 }
 
 
@@ -192,8 +198,8 @@ void CHIP::OpCode_ClearScreen(uint16_t instruction)
 {
 	std::cout << "=== Opcode 00E0: Clear Screen ===" << std::endl;
 	// This is pretty simple: It should clear the display, turning all pixels off to 0.
-	std::for_each(mDisplay.begin(), mDisplay.end(), [](bool pixel) {
-		pixel &= 0;
+	std::for_each(mDisplay.begin(), mDisplay.end(), [](uint32_t& pixel) {
+		pixel &= 0x0;
 		});
 }
 
@@ -214,6 +220,44 @@ void CHIP::OpCode_SetIndexRegister(uint16_t instruction)
 {
 	std::cout << "=== Opcode ANNN: Set Index Register ===" << std::endl;
 	mIndexRegister = GetNNN(instruction);
+}
+
+void CHIP::OpCode_AddNnToVx(uint16_t instruction)
+{
+	// Add the value NN to VX.
+	mVariableRegisters[GetX(instruction)] += GetNN(instruction);
+}
+
+void CHIP::OpCode_Display(uint16_t instruction)
+{
+	std::cout << "=== Opcode DXYN: Display ===" << std::endl;
+
+	const uint8_t xPos = mVariableRegisters[GetX(instruction)] % DISPLAY_WIDTH;
+	const uint8_t yPos = mVariableRegisters[GetY(instruction)] % DISPLAY_HEIGHT;
+
+	for (uint8_t row = 0; row < GetN(instruction); ++row)
+	{
+		for (uint8_t col = 0; col < 8; ++col)
+		{
+			//If the current pixel in the sprite row is on and the pixel at coordinates X,Y on the screen is also on, turn off the pixel and set VF to 1
+			const uint8_t spritePixel = mMemory[mIndexRegister + row] & (0b10000000 >> col);
+			uint32_t* displayPixel = &mDisplay[(yPos + row) * DISPLAY_WIDTH + xPos + col];
+
+			// If it's non-zero, this will flip the result to 0, and then flip it again to 1; then negate it as -1 equates to 0xFFFFFFFF
+			const uint32_t spriteMask = -!!spritePixel;
+
+			// collision will either be 0x00000000 if either pixels are off, or 0xFFFFFFFF if both pixels are on
+			const uint32_t collision = spriteMask & *displayPixel;
+			
+			// by shifting collision to the right, we end up with 1 bit that is either 0 or 1
+			const bool bothPixelsOn = (collision >> 31) & 1;
+
+			// Bitwise OR'ing it means VF will be set to 1 if VF is currently zero
+			mVariableRegisters[0xF] |= bothPixelsOn;
+
+			*displayPixel ^= spriteMask;
+		}
+	}
 }
 
 void CHIP::OpCode_PushSubroutine(uint16_t instruction)
