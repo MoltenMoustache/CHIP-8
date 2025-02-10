@@ -60,13 +60,42 @@ CHIP::CHIP()
 	mInstructions.emplace(0x00EE, [this](const uint16_t opcode) { OpCode_PopSubroutine(opcode); });
 }
 
-void CHIP::LoadROM(const char* romPath)
+void CHIP::LoadROM(const char* romPath, uint16_t cyclesPerSecond /* = 700 */)
 {
+	mSecondsPerCycle = 1.0 / cyclesPerSecond;
+
 	mProgramCounter = mStartingProgramCounter;
 	std::ifstream rom(romPath, std::ios::binary);
 	rom.read(reinterpret_cast<char*>(mMemory.data() + mProgramCounter), sizeof(mMemory) - mProgramCounter);
 	mRomSize = rom.gcount();
 	rom.close();
+}
+
+void CHIP::Update(const double deltaTime)
+{
+	if (IsPaused())
+	{
+		return;
+	}
+
+	mTimer += deltaTime;
+	mCycleTimer += deltaTime;
+
+	// Timers need to be decremented by 1 every second
+	const int timerDecrement = static_cast<int>(mTimer);
+	mDelayTimer = std::clamp(mDelayTimer - timerDecrement, 0, 255);
+	mSoundTimer = std::clamp(mSoundTimer - timerDecrement, 0, 255);
+	mTimer -= timerDecrement;
+
+	// Ensure no missed instructions between updates.
+	const int cyclesToRun = static_cast<int>(mCycleTimer / mSecondsPerCycle);
+	for (int i = 0; i < cyclesToRun; ++i)
+	{
+		Process();
+	}
+
+	// Only subtract time used, to ensure no lost time between updates.
+	mCycleTimer -= cyclesToRun * mSecondsPerCycle;
 }
 
 void CHIP::Process()
@@ -83,6 +112,12 @@ uint16_t CHIP::Fetch()
 
 	// Read two successive bytes and combine into one 16-bit instruction
 	mProgramCounter += 2;
+
+#ifdef DEBUG
+	mPreviousInstruction = instruction;
+	mNextInstruction = (static_cast<uint16_t>(mMemory[mProgramCounter]) << 8) ^ static_cast<uint16_t>(mMemory[mProgramCounter + 1]);
+#endif
+
 	return instruction;
 }
 
@@ -157,10 +192,14 @@ std::string GetHexString(uint16_t num)
 void CHIP::DrawDebug()
 {
 	ImGui::Begin("CHIP-8 Debug Controls");
+	ImGui::Text("Last Instruction: %s", GetHexString(mPreviousInstruction).c_str());
+	ImGui::Text("Next Instruction: %s", GetHexString(mNextInstruction).c_str());
 	if (ImGui::Button("Process Next Instruction"))
 	{
 		Process();
 	}
+
+	ImGui::Checkbox("Pause Emulation", &mIsPaused);
 	ImGui::End();
 
 	if (mRomSize > 0)

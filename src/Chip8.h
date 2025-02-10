@@ -13,7 +13,8 @@ class CHIP {
 public:
 	CHIP();
 
-	void LoadROM(const char* romPath);
+	void LoadROM(const char* romPath, uint16_t cyclesPerSecond = 700);
+	void Update(const double deltaTime);
 	void Process();
 	// Constructs a full instruction from the memory index of mProgramCounter
 	uint16_t Fetch();
@@ -29,6 +30,8 @@ public:
 	inline const uint32_t* GetDisplay() { return mDisplay.data(); }
 	inline const uint8_t GetDisplayWidth() { return DISPLAY_WIDTH; }
 	inline const uint8_t GetDisplayHeight() { return DISPLAY_HEIGHT; }
+
+	inline const bool IsPaused() { return mIsPaused; }
 
 private:
 	// Op Codes
@@ -57,13 +60,25 @@ private:
 	// Each element will either be 0x00000000 (off) or 0xFFFFFFFF (on)
 	std::array<uint32_t, DISPLAY_WIDTH * DISPLAY_HEIGHT> mDisplay = { 0 };
 
+	std::stack<uint16_t> mAddressStack;
 	uint16_t mIndexRegister = 0;
 	uint16_t mProgramCounter = 0x200;
-	std::stack<uint16_t> mAddressStack;
 
+	double mTimer = 0;
 	uint8_t mDelayTimer = 0;
 	uint8_t mSoundTimer = 0;
 
 	const uint16_t mStartingProgramCounter = 0x200;
 	uint8_t mRomSize = 0;
+	double mSecondsPerCycle = 0;
+	double mCycleTimer = 0;
+
+#ifdef DEBUG
+	uint16_t mPreviousInstruction = 0;
+	uint16_t mNextInstruction = 0;
+
+	bool mIsPaused = true;
+#else
+	const bool mIsPaused = false;
+#endif
 };
