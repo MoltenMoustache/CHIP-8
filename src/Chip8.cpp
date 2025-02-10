@@ -37,6 +37,14 @@ const std::array<uint8_t, 80> gDefaultFont =
 	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+std::unordered_map<uint8_t, uint16_t> gOpcodeLookup =
+{
+	{0x8, 0xF00F},
+	{0xF, 0xF0FF},
+	{0xE, 0xF0FF},
+	{0x0, 0xFFFF},
+};
+
 CHIP::CHIP()
 {
 	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
@@ -123,27 +131,11 @@ uint16_t CHIP::Fetch()
 
 uint16_t CHIP::Decode(uint16_t instruction)
 {
-	// Would like to find a solution that removes these conditionals from the main loop
-	// Multiple arrays with the opcode as indexes?
-
 	// Grab the first nibble and determine the opcode
 	const uint8_t nibble = instruction >> 12;
-	switch (nibble)
-	{
-	// Any case starting with 0x0 is explicit, so the entire instruction is the opcode.
-	case 0x0:
-		return instruction;
-	// These opcodes are made distinct by the last literal nibble
-	case 0x8:
-		return (instruction & 0xF00F);
-	// These opcodes are made distinct by literal 1st, 3rd and 4th nibbles
-	case 0xF:
-	case 0xE:
-		return (instruction & 0xF0FF);
-	// For these cases, the other nibbles are instructions and the first nibble is the op code.
-	default:
-		return (instruction & 0xF000);
-	}
+	const uint16_t opcodeMask = gOpcodeLookup.contains(nibble) ? gOpcodeLookup[nibble] : 0xF000;
+	
+	return instruction & opcodeMask;
 }
 
 void CHIP::Execute(uint16_t opcode, uint16_t instruction)
@@ -237,9 +229,7 @@ void CHIP::OpCode_ClearScreen(uint16_t instruction)
 {
 	std::cout << "=== Opcode 00E0: Clear Screen ===" << std::endl;
 	// This is pretty simple: It should clear the display, turning all pixels off to 0.
-	std::for_each(mDisplay.begin(), mDisplay.end(), [](uint32_t& pixel) {
-		pixel &= 0x0;
-		});
+	std::fill(mDisplay.begin(), mDisplay.end(), 0);
 }
 
 void CHIP::OpCode_Jump(uint16_t instruction)
