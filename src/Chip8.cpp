@@ -327,7 +327,122 @@ void CHIP::OpCode_SkipVxVyNotEqual(uint16_t instruction)
 void CHIP::OpCode_Add(uint16_t instruction)
 {
 	// Add the value NN to VX.
+	mVariableRegisters[GetX(instruction)] = GetNN(instruction);
+}
 
-	// Note that on most other systems, and even in some of the other CHIP-8 instructions, this would set the carry flag if the result overflowed 8 bits; in other words, if the result of the addition is over 255.
-	// For this instruction, this is not the case. If V0 contains FF and you execute 7001, the CHIP - 8’s flag register VF is not affected.
+void CHIP::OpCode_JumpWithOffset(uint16_t instruction)
+{
+	// TODO: Ambiguous instruction, add support for toggling quirk
+}
+
+void CHIP::OpCode_Set(uint16_t instruction)
+{
+	// VX is set to the value of VY.
+	mVariableRegisters[GetX(instruction)] = mVariableRegisters[GetY(instruction)];
+}
+
+void CHIP::OpCode_BinaryOR(uint16_t instruction)
+{
+	// VX is set to the bitwise/binary logical disjunction (OR) of VX and VY. VY is not affected.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vx ^ vy;
+}
+
+void CHIP::OpCode_BinaryAND(uint16_t instruction)
+{
+	// VX is set to the bitwise/binary logical conjunction (AND) of VX and VY. VY is not affected.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vx & vy;
+}
+
+void CHIP::OpCode_LogicalXOR(uint16_t instruction)
+{
+	// VX is set to the bitwise/binary exclusive OR (XOR) of VX and VY. VY is not affected.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vx ^ vy;
+}
+
+void CHIP::OpCode_AddWithCarry(uint16_t instruction)
+{
+	// TODO: Remove conditional
+	// VX is set to the value of VX plus the value of VY. VY is not affected.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vx + vy;
+
+	// Unlike 7XNN, this addition will affect the carry flag.
+	// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1.
+	// If it doesn’t overflow, VF is set to 0.
+	mVariableRegisters[0xF] = vx + vy > 255 ? 1 : 0;
+}
+
+void CHIP::OpCode_SubtractVyFromVx(uint16_t instruction)
+{
+	// 8XY5 sets VX to the result of VX - VY.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vx - vy;
+
+	//This subtraction will also affect the carry flag, but note that it’s opposite from what you might think.
+	// If the minuend (the first operand) is larger than the subtrahend (second operand), VF will be set to 1.
+	// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
+	// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
+	mVariableRegisters[0xF] = vx > vy ? 1 : 0;
+}
+
+void CHIP::OpCode_SubtractVxfromVy(uint16_t instruction)
+{
+	// 8XY5 sets VX to the result of VY - VX.
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	mVariableRegisters[GetX(instruction)] = vy - vx;
+
+	//This subtraction will also affect the carry flag, but note that it’s opposite from what you might think.
+	// If the minuend (the first operand) is larger than the subtrahend (second operand), VF will be set to 1.
+	// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
+	// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
+	mVariableRegisters[0xF] = vy > vx ? 1 : 0;
+}
+
+void CHIP::OpCode_ShiftRight(uint16_t instruction)
+{
+	// TODO: Ambiguous instruction, add support for toggling quirk
+}
+
+void CHIP::OpCode_ShiftLeft(uint16_t instruction)
+{
+	// TODO: Ambiguous instruction, add support for toggling quirk
+}
+
+void CHIP::OpCode_CacheDelayTimer(uint16_t instruction)
+{
+	// FX07 sets VX to the current value of the delay timer
+	mVariableRegisters[GetX(instruction)] = mDelayTimer;
+}
+
+void CHIP::OpCode_SetDelayTimer(uint16_t instruction)
+{
+	// FX15 sets the delay timer to the value in VX
+	mDelayTimer = mVariableRegisters[GetX(instruction)];
+}
+
+void CHIP::OpCode_SetSoundTimer(uint16_t instruction)
+{
+	// FX18 sets the sound timer to the value in VX
+	mSoundTimer = mVariableRegisters[GetX(instruction)];
+}
+
+void CHIP::OpCode_AddToIndexRegister(uint16_t instruction)
+{
+	// The index register I will get the value in VX added to it.
+	// TODO: Handle overflow for Spaceflight 2091!
+	mIndexRegister += mVariableRegisters[GetX(instruction)];
+}
+
+void CHIP::OpCode_SetFontCharacter(uint16_t instruction)
+{
+	// The index register I is set to the address of the hexadecimal character in VX.
 }

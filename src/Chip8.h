@@ -50,6 +50,34 @@ private:
 	void OpCode_SkipVxVyNotEqual(uint16_t instruction);		// 9XY0
 	void OpCode_Add(uint16_t instruction);					// 7XNN
 
+	void OpCode_JumpWithOffset(uint16_t instruction);		// BNNN
+	void OpCode_Random(uint16_t instruction);				// CXNN
+
+	void OpCode_Set(uint16_t instruction);					// 8XY0
+	void OpCode_BinaryOR(uint16_t instruction);				// 8XY1
+	void OpCode_BinaryAND(uint16_t instruction);			// 8XY2
+	void OpCode_LogicalXOR(uint16_t instruction);			// 8XY3
+	void OpCode_AddWithCarry(uint16_t instruction);			// 8XY4
+	void OpCode_SubtractVyFromVx(uint16_t instruction);		// 8XY5
+	void OpCode_SubtractVxfromVy(uint16_t instruction);		// 8XY7
+	void OpCode_ShiftRight(uint16_t instruction);			// 8XY6
+	void OpCode_ShiftLeft(uint16_t instruction);			// 8XYE
+
+	void OpCode_SkipIfKeyPressed(uint16_t instruction);		// EX9E
+	void OpCode_SkipIfKeyNotPressed(uint16_t instruction);	// EXA1
+
+	void OpCode_CacheDelayTimer(uint16_t instruction);		// FX07
+	void OpCode_SetDelayTimer(uint16_t instruction);		// FX15
+	void OpCode_SetSoundTimer(uint16_t instruction);		// FX18
+
+	void OpCode_AddToIndexRegister(uint16_t instruction);	// FX1E
+	void OpCode_GetKey(uint16_t instruction);				// FX0A
+	void OpCode_SetFontCharacter(uint16_t instruction);		// FX29
+	void OpCode_BinaryToDecimal(uint16_t instruction);		// FX33
+
+	void OpCode_StoreMemory(uint16_t instruction);			// FX55
+	void OpCode_LoadMemory(uint16_t instruction);			// FX65
+
 private:
 	std::array<uint8_t, 4096> mMemory = { 0 };
 	std::unordered_map<uint16_t, std::function<void(uint16_t)>> mInstructions;
