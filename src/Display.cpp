@@ -60,6 +60,8 @@ bool Display::Startup(const int windowWidth, const int windowHeight, const int t
 #ifdef DEBUG
 	Debug::Debug_Init(mWindow, mRenderer);
 #endif
+
+	return true;
 }
 
 void Display::Shutdown()
@@ -75,22 +77,11 @@ void Display::Shutdown()
 }
 
 
-bool Display::Update()
+void Display::Update(const SDL_Event* event)
 {
-	// Exit app on pressing ESC
-	SDL_Event e;
-	if (SDL_PollEvent(&e))
-	{
 #ifdef DEBUG
-		ImGui_ImplSDL3_ProcessEvent(&e); // Let ImGui handle the event
+	ImGui_ImplSDL3_ProcessEvent(event); // Let ImGui handle the event
 #endif
-		if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_UP && e.key.key == SDLK_ESCAPE))
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 void Display::RenderBegin()

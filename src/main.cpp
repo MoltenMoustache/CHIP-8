@@ -7,6 +7,44 @@ static bool gDone;
 const int WINDOW_WIDTH = 1920;
 const int WINDOW_HEIGHT = WINDOW_WIDTH / 2;
 
+std::array<uint8_t, 16> gKeymap = {
+	SDLK_X,
+	SDLK_1,
+	SDLK_2,
+	SDLK_3,
+	SDLK_Q,
+	SDLK_W,
+	SDLK_E,
+	SDLK_A,
+	SDLK_S,
+	SDLK_D,
+	SDLK_Z,
+	SDLK_C,
+	SDLK_4,
+	SDLK_R,
+	SDLK_F,
+	SDLK_V,
+};
+
+void HandleInput(const SDL_Event& e, bool* keys)
+{
+	// Exit app on pressing ESC
+	if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_UP && e.key.key == SDLK_ESCAPE))
+	{
+		gDone = true;
+	}
+
+	// process input if its in our designated keymap
+	for (int i = 0; i < gKeymap.size(); ++i)
+	{
+		const bool isKeyUp = e.type == SDL_EVENT_KEY_UP ? 1 : 0;
+		if (e.key.key == gKeymap[i])
+		{
+			keys[i] = isKeyUp;
+		}
+	}
+}
+
 int main()
 {
 	Display* display = new Display();
@@ -15,7 +53,8 @@ int main()
 	display->Startup(WINDOW_WIDTH, WINDOW_HEIGHT, emu->GetDisplayWidth(), emu->GetDisplayHeight());
 
 	// hardcoded path and speed for testing
-	emu->LoadROM("C:\\Users\\Molte\\Downloads\\IBMLogo.ch8", 700);
+	//emu->LoadROM("C:\\Users\\Molte\\Downloads\\IBMLogo.ch8", 700);
+	emu->LoadROM("C:\\Users\\Molte\\Downloads\\6-keypad.ch8", 700);
 
 	gDone = false;
 	uint64_t lastCounter = SDL_GetPerformanceCounter();
@@ -27,9 +66,11 @@ int main()
 		const double deltaTime = (newCounter - lastCounter) / frequency;
 		lastCounter = newCounter;
 
-		if (display->Update())
+		SDL_Event e;
+		if (SDL_PollEvent(&e))
 		{
-			gDone = true;
+			display->Update(&e);
+			HandleInput(e, emu->GetKeypad());
 		}
 
 		emu->Update(deltaTime);

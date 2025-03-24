@@ -46,26 +46,52 @@ std::unordered_map<uint8_t, uint16_t> gOpcodeLookup =
 };
 
 CHIP::CHIP()
+	: mInstructions {
+		{0x00E0, [this](const uint16_t opcode) { OpCode_ClearScreen(opcode); }},		// 00E0
+		{0x1000, [this](const uint16_t opcode) { OpCode_Jump(opcode); }},				// 1NNN
+		{0x6000, [this](const uint16_t opcode) { OpCode_SetVxToNn(opcode); }},			// 6XNN
+		{0xA000, [this](const uint16_t opcode) { OpCode_SetIndexRegister(opcode); }},	// ANNN
+		{0x7000, [this](const uint16_t opcode) { OpCode_AddNnToVx(opcode); }},			// 7XNN
+		{0xD000, [this](const uint16_t opcode) { OpCode_Display(opcode); }},			// DXYN
+
+		{0x2000, [this](const uint16_t opcode) { OpCode_PushSubroutine(opcode); }},		// 2NNN
+		{0x00EE, [this](const uint16_t opcode) { OpCode_PopSubroutine(opcode); }},		// 00EE
+		//{0x3000, [this](const uint16_t opcode) { OpCode_SkipIfVxNn(opcode); }},			// 3XNN
+		//{0x4000, [this](const uint16_t opcode) { OpCode_SkipIfVxNotNn(opcode); }},		// 4XNN
+		//{0x5000, [this](const uint16_t opcode) { OpCode_SkipVxVyEqual(opcode); }},		// 5XY0
+		//{0x9000, [this](const uint16_t opcode) { OpCode_SkipVxVyNotEqual(opcode); }},	// 9XY0
+		{0x7000, [this](const uint16_t opcode) { OpCode_Add(opcode); }},				// 7XNN
+
+		//{0xB000, [this](const uint16_t opcode) { OpCode_JumpWithOffset(opcode); }},		// BNNN
+		//{0xC000, [this](const uint16_t opcode) { OpCode_Random(opcode); }},				// CXNN
+
+		{0x8000, [this](const uint16_t opcode) { OpCode_Set(opcode); }},				// 8XY0
+		{0x8001, [this](const uint16_t opcode) { OpCode_BinaryOR(opcode); }},			// 8XY1
+		{0x8002, [this](const uint16_t opcode) { OpCode_BinaryAND(opcode); }},			// 8XY2
+		{0x8003, [this](const uint16_t opcode) { OpCode_LogicalXOR(opcode);	} },		// 8XY3
+		{0x8004, [this](const uint16_t opcode) { OpCode_AddWithCarry(opcode); }},		// 8XY4
+		{0x8005, [this](const uint16_t opcode) { OpCode_SubtractVyFromVx(opcode); }},	// 8XY5
+		{0x8007, [this](const uint16_t opcode) { OpCode_SubtractVxfromVy(opcode); }},	// 8XY7
+		//{0x8006, [this](const uint16_t opcode) { OpCode_ShiftRight(opcode); }},			// 8XY6
+		//{0x800E, [this](const uint16_t opcode) { OpCode_ShiftLeft(opcode); }},			// 8XYE
+
+		{0xE09E, [this](const uint16_t opcode) { OpCode_SkipIfKeyPressed(opcode); }},	// EX9E
+		{0xE0A1, [this](const uint16_t opcode) { OpCode_SkipIfKeyNotPressed(opcode); }},// EXA1
+
+		{0xF007, [this](const uint16_t opcode) { OpCode_CacheDelayTimer(opcode); }},	// FX07
+		{0xF015, [this](const uint16_t opcode) { OpCode_SetDelayTimer(opcode); }},		// FX15
+		{0xF018, [this](const uint16_t opcode) { OpCode_SetSoundTimer(opcode); }},		// FX18
+
+		{0xF01E, [this](const uint16_t opcode) { OpCode_AddToIndexRegister(opcode); }},	// FX1E
+		{0xF00A, [this](const uint16_t opcode) { OpCode_GetKey(opcode); }},				// FX0A
+		//{0xF029, [this](const uint16_t opcode) { OpCode_SetFontCharacter(opcode); }},	// FX29
+		//{0xF033, [this](const uint16_t opcode) { OpCode_BinaryToDecimal(opcode); }},	// FX33
+		
+		//{0xF055, [this](const uint16_t opcode) { OpCode_StoreMemory(opcode); }},	// FX55
+		//{0xF065, [this](const uint16_t opcode) { OpCode_LoadMemory(opcode); }},	// FX65
+	}
 {
 	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
-
-	// Intiailize the instruction table
-	// Minimum for IBM logo is:
-	// - 00E0 (clear screen)
-	// - 1NNN(jump)
-	// - 6XNN(set register VX)
-	// - 7XNN(add value to register VX)
-	// - ANNN(set index register I)
-	// - DXYN(display / draw)
-	mInstructions.reserve(64);
-	mInstructions.emplace(0x00E0, [this](const uint16_t opcode) { OpCode_ClearScreen(opcode); });		// 00E0
-	mInstructions.emplace(0x1000, [this](const uint16_t opcode) { OpCode_Jump(opcode); });				// 1NNN
-	mInstructions.emplace(0x6000, [this](const uint16_t opcode) { OpCode_SetVxToNn(opcode); });			// 6XNN
-	mInstructions.emplace(0xA000, [this](const uint16_t opcode) { OpCode_SetIndexRegister(opcode); });	// ANNN
-	mInstructions.emplace(0x7000, [this](const uint16_t opcode) { OpCode_AddNnToVx(opcode); });			// 7XNN
-	mInstructions.emplace(0xD000, [this](const uint16_t opcode) { OpCode_Display(opcode); });			// DXYN
-	mInstructions.emplace(0x2000, [this](const uint16_t opcode) { OpCode_PushSubroutine(opcode); });
-	mInstructions.emplace(0x00EE, [this](const uint16_t opcode) { OpCode_PopSubroutine(opcode); });
 }
 
 void CHIP::LoadROM(const char* romPath, uint16_t cyclesPerSecond /* = 700 */)
@@ -346,7 +372,7 @@ void CHIP::OpCode_BinaryOR(uint16_t instruction)
 	// VX is set to the bitwise/binary logical disjunction (OR) of VX and VY. VY is not affected.
 	const uint8_t vx = mVariableRegisters[GetX(instruction)];
 	const uint8_t vy = mVariableRegisters[GetY(instruction)];
-	mVariableRegisters[GetX(instruction)] = vx ^ vy;
+	mVariableRegisters[GetX(instruction)] = vx | vy;
 }
 
 void CHIP::OpCode_BinaryAND(uint16_t instruction)
@@ -442,7 +468,44 @@ void CHIP::OpCode_AddToIndexRegister(uint16_t instruction)
 	mIndexRegister += mVariableRegisters[GetX(instruction)];
 }
 
+void CHIP::OpCode_GetKey(uint16_t instruction)
+{
+	// This opcode will wait for a key to be pressed before incrementing the program counter
+	// As we already incremented the program counter in the Fetch step, we decrement it here first.
+	mProgramCounter -= 2;
+
+	// This will increment if any button is currently being pressed, it will not increment WHEN a button is pressed.
+	for (int i = 0; i < mKeypad.size(); ++i)
+	{
+		if (mKeypad[i])
+		{
+			mProgramCounter += 2;
+			mVariableRegisters[GetX(instruction)] = i;
+		}
+	}
+}
+
 void CHIP::OpCode_SetFontCharacter(uint16_t instruction)
 {
 	// The index register I is set to the address of the hexadecimal character in VX.
+}
+
+void CHIP::OpCode_SkipIfKeyPressed(uint16_t instruction)
+{
+	// EX9E will skip one instruction (increment PC by 2) if the key corresponding to the value in VX is pressed.
+	const uint8_t key = mVariableRegisters[GetX(instruction)];
+	if (mKeypad[key])
+	{
+		mProgramCounter += 2;
+	}
+}
+
+void CHIP::OpCode_SkipIfKeyNotPressed(uint16_t instruction)
+{
+	// EXA1 skips if the key corresponding to the value in VX is not pressed.
+	const uint8_t key = mVariableRegisters[GetX(instruction)];
+	if (!mKeypad[key])
+	{
+		mProgramCounter += 2;
+	}
 }

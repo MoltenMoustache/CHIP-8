@@ -30,6 +30,7 @@ public:
 	inline const uint32_t* GetDisplay() { return mDisplay.data(); }
 	inline const uint8_t GetDisplayWidth() { return DISPLAY_WIDTH; }
 	inline const uint8_t GetDisplayHeight() { return DISPLAY_HEIGHT; }
+	inline bool* GetKeypad() { return mKeypad.data(); }
 
 	inline const bool IsPaused() { return mIsPaused; }
 
@@ -42,8 +43,8 @@ private:
 	void OpCode_AddNnToVx(uint16_t instruction);			// 7XNN
 	void OpCode_Display(uint16_t instruction);				// DXYN
 
-	void OpCode_PushSubroutine(uint16_t instruction);		// 00EE
-	void OpCode_PopSubroutine(uint16_t instruction);		// 2NNN
+	void OpCode_PushSubroutine(uint16_t instruction);		// 2NNN
+	void OpCode_PopSubroutine(uint16_t instruction);		// 00EE
 	void OpCode_SkipIfVxNn(uint16_t instruction);			// 3XNN
 	void OpCode_SkipIfVxNotNn(uint16_t instruction);		// 4XNN
 	void OpCode_SkipVxVyEqual(uint16_t instruction);		// 5XY0
@@ -89,6 +90,7 @@ private:
 	std::array<uint32_t, DISPLAY_WIDTH * DISPLAY_HEIGHT> mDisplay = { 0 };
 
 	std::stack<uint16_t> mAddressStack;
+	std::array<bool, 16> mKeypad = { 0 };
 	uint16_t mIndexRegister = 0;
 	uint16_t mProgramCounter = 0x200;
 

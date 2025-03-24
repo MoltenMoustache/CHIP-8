@@ -7,7 +7,7 @@ public:
 	bool Startup(const int windowWidth, const int windowHeight, const int textureWidth, const int textureHeight);
 	void Shutdown();
 
-	bool Update();
+	void Update(const SDL_Event* event);
 	void RenderBegin();
 	void RenderEnd(const uint32_t* pixelBuffer, const int pitch);
 
