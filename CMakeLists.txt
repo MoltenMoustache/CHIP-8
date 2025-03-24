@@ -39,6 +39,14 @@ add_executable(CHIP8 src/main.cpp src/Chip8.cpp  "src/Chip8.h" src/Display.cpp s
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_include_directories(${PROJECT_NAME} PRIVATE ${SDL3_SOURCE_DIR}/include)
 
+
+add_custom_command(
+        TARGET CHIP8 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_SOURCE_DIR}/roms"
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/roms"
+           COMMENT "Copying roms to output directory."
+)
 # imgui
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     CPMADDPACKAGE("gh:ocornut/imgui#v1.91.7")

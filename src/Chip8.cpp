@@ -56,10 +56,10 @@ CHIP::CHIP()
 
 		{0x2000, [this](const uint16_t opcode) { OpCode_PushSubroutine(opcode); }},		// 2NNN
 		{0x00EE, [this](const uint16_t opcode) { OpCode_PopSubroutine(opcode); }},		// 00EE
-		//{0x3000, [this](const uint16_t opcode) { OpCode_SkipIfVxNn(opcode); }},			// 3XNN
-		//{0x4000, [this](const uint16_t opcode) { OpCode_SkipIfVxNotNn(opcode); }},		// 4XNN
-		//{0x5000, [this](const uint16_t opcode) { OpCode_SkipVxVyEqual(opcode); }},		// 5XY0
-		//{0x9000, [this](const uint16_t opcode) { OpCode_SkipVxVyNotEqual(opcode); }},	// 9XY0
+		{0x3000, [this](const uint16_t opcode) { OpCode_SkipIfVxNn(opcode); }},			// 3XNN
+		{0x4000, [this](const uint16_t opcode) { OpCode_SkipIfVxNotNn(opcode); }},		// 4XNN
+		{0x5000, [this](const uint16_t opcode) { OpCode_SkipVxVyEqual(opcode); }},		// 5XY0
+		{0x9000, [this](const uint16_t opcode) { OpCode_SkipVxVyNotEqual(opcode); }},	// 9XY0
 		{0x7000, [this](const uint16_t opcode) { OpCode_Add(opcode); }},				// 7XNN
 
 		//{0xB000, [this](const uint16_t opcode) { OpCode_JumpWithOffset(opcode); }},		// BNNN
@@ -72,8 +72,8 @@ CHIP::CHIP()
 		{0x8004, [this](const uint16_t opcode) { OpCode_AddWithCarry(opcode); }},		// 8XY4
 		{0x8005, [this](const uint16_t opcode) { OpCode_SubtractVyFromVx(opcode); }},	// 8XY5
 		{0x8007, [this](const uint16_t opcode) { OpCode_SubtractVxfromVy(opcode); }},	// 8XY7
-		//{0x8006, [this](const uint16_t opcode) { OpCode_ShiftRight(opcode); }},			// 8XY6
-		//{0x800E, [this](const uint16_t opcode) { OpCode_ShiftLeft(opcode); }},			// 8XYE
+		{0x8006, [this](const uint16_t opcode) { OpCode_ShiftRight(opcode); }},			// 8XY6
+		{0x800E, [this](const uint16_t opcode) { OpCode_ShiftLeft(opcode); }},			// 8XYE
 
 		{0xE09E, [this](const uint16_t opcode) { OpCode_SkipIfKeyPressed(opcode); }},	// EX9E
 		{0xE0A1, [this](const uint16_t opcode) { OpCode_SkipIfKeyNotPressed(opcode); }},// EXA1
@@ -87,8 +87,8 @@ CHIP::CHIP()
 		//{0xF029, [this](const uint16_t opcode) { OpCode_SetFontCharacter(opcode); }},	// FX29
 		//{0xF033, [this](const uint16_t opcode) { OpCode_BinaryToDecimal(opcode); }},	// FX33
 		
-		//{0xF055, [this](const uint16_t opcode) { OpCode_StoreMemory(opcode); }},	// FX55
-		//{0xF065, [this](const uint16_t opcode) { OpCode_LoadMemory(opcode); }},	// FX65
+		{0xF055, [this](const uint16_t opcode) { OpCode_StoreMemory(opcode); }},	// FX55
+		{0xF065, [this](const uint16_t opcode) { OpCode_LoadMemory(opcode); }},	// FX65
 	}
 {
 	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
@@ -100,6 +100,7 @@ void CHIP::LoadROM(const char* romPath, uint16_t cyclesPerSecond /* = 700 */)
 
 	mProgramCounter = mStartingProgramCounter;
 	std::ifstream rom(romPath, std::ios::binary);
+	assert(!rom.fail(), "Filepath invalid");
 	rom.read(reinterpret_cast<char*>(mMemory.data() + mProgramCounter), sizeof(mMemory) - mProgramCounter);
 	mRomSize = rom.gcount();
 	rom.close();
@@ -333,21 +334,43 @@ void CHIP::OpCode_PopSubroutine(uint16_t instruction)
 void CHIP::OpCode_SkipIfVxNn(uint16_t instruction)
 {
 	// 3XNN will skip one instruction if the value in VX is equal to NN
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	if (vx == GetNN(instruction))
+	{
+		mProgramCounter += 2;
+	}
 }
 
 void CHIP::OpCode_SkipIfVxNotNn(uint16_t instruction)
 {
 	// 4XNN will skip one instruction if the value in VX is NOT equal to NN
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	if (vx != GetNN(instruction))
+	{
+		mProgramCounter += 2;
+	}
 }
 
 void CHIP::OpCode_SkipVxVyEqual(uint16_t instruction)
 {
 	// 5XY0 skips if the values in VX and VY are equal
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	if (vx == vy)
+	{
+		mProgramCounter += 2;
+	}
 }
 
 void CHIP::OpCode_SkipVxVyNotEqual(uint16_t instruction)
 {
 	// 9XY0 skips if the values in VX and VY are not equal
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+	const uint8_t vy = mVariableRegisters[GetY(instruction)];
+	if (vx != vy)
+	{
+		mProgramCounter += 2;
+	}
 }
 
 void CHIP::OpCode_Add(uint16_t instruction)
@@ -436,11 +459,31 @@ void CHIP::OpCode_SubtractVxfromVy(uint16_t instruction)
 void CHIP::OpCode_ShiftRight(uint16_t instruction)
 {
 	// TODO: Ambiguous instruction, add support for toggling quirk
+	const bool setVX = true;
+	if (setVX)
+	{
+		mVariableRegisters[GetX(instruction)] = mVariableRegisters[GetY(instruction)];
+	}
+
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+
+	mVariableRegisters[0xF] = vx & 0b00000001;
+	mVariableRegisters[GetX(instruction)] >>= 1;
 }
 
 void CHIP::OpCode_ShiftLeft(uint16_t instruction)
 {
 	// TODO: Ambiguous instruction, add support for toggling quirk
+	const bool setVX = true;
+	if (setVX)
+	{
+		mVariableRegisters[GetX(instruction)] = mVariableRegisters[GetY(instruction)];
+	}
+
+	const uint8_t vx = mVariableRegisters[GetX(instruction)];
+
+	mVariableRegisters[0xF] = vx & 0b10000000;
+	mVariableRegisters[GetX(instruction)] <<= 1;
 }
 
 void CHIP::OpCode_CacheDelayTimer(uint16_t instruction)
@@ -488,6 +531,22 @@ void CHIP::OpCode_GetKey(uint16_t instruction)
 void CHIP::OpCode_SetFontCharacter(uint16_t instruction)
 {
 	// The index register I is set to the address of the hexadecimal character in VX.
+}
+
+void CHIP::OpCode_StoreMemory(uint16_t instruction)
+{
+	for (int i = 0; i <= GetX(instruction); ++i)
+	{
+		mMemory[mIndexRegister + i] = mVariableRegisters[i];
+	}
+}
+
+void CHIP::OpCode_LoadMemory(uint16_t instruction)
+{
+	for (int i = 0; i <= GetX(instruction); ++i)
+	{
+		mVariableRegisters[i] = mMemory[mIndexRegister + i];
+	}
 }
 
 void CHIP::OpCode_SkipIfKeyPressed(uint16_t instruction)

@@ -37,10 +37,10 @@ void HandleInput(const SDL_Event& e, bool* keys)
 	// process input if its in our designated keymap
 	for (int i = 0; i < gKeymap.size(); ++i)
 	{
-		const bool isKeyUp = e.type == SDL_EVENT_KEY_UP ? 1 : 0;
+		const bool isKeyDown = e.type == SDL_EVENT_KEY_DOWN ? 1 : 0;
 		if (e.key.key == gKeymap[i])
 		{
-			keys[i] = isKeyUp;
+			keys[i] = isKeyDown;
 		}
 	}
 }
@@ -53,8 +53,10 @@ int main()
 	display->Startup(WINDOW_WIDTH, WINDOW_HEIGHT, emu->GetDisplayWidth(), emu->GetDisplayHeight());
 
 	// hardcoded path and speed for testing
-	//emu->LoadROM("C:\\Users\\Molte\\Downloads\\IBMLogo.ch8", 700);
-	emu->LoadROM("C:\\Users\\Molte\\Downloads\\6-keypad.ch8", 700);
+	//emu->LoadROM("roms\\IBMLogo.ch8", 700);
+	emu->LoadROM("roms\\6-keypad.ch8", 700);
+	//emu->LoadROM("roms\\3-corax+.ch8", 700);
+	//emu->LoadROM("roms\\5-quirks.ch8", 700);
 
 	gDone = false;
 	uint64_t lastCounter = SDL_GetPerformanceCounter();
