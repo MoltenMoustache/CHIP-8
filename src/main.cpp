@@ -7,7 +7,7 @@ static bool gDone;
 const int WINDOW_WIDTH = 1920;
 const int WINDOW_HEIGHT = WINDOW_WIDTH / 2;
 
-std::array<uint8_t, 16> gKeymap = {
+constexpr std::array<uint8_t, 16> gKeymap = {
 	SDLK_X,
 	SDLK_1,
 	SDLK_2,
@@ -53,10 +53,7 @@ int main()
 	display->Startup(WINDOW_WIDTH, WINDOW_HEIGHT, emu->GetDisplayWidth(), emu->GetDisplayHeight());
 
 	// hardcoded path and speed for testing
-	//emu->LoadROM("roms\\IBMLogo.ch8", 700);
 	emu->LoadROM("roms\\6-keypad.ch8", 700);
-	//emu->LoadROM("roms\\3-corax+.ch8", 700);
-	//emu->LoadROM("roms\\5-quirks.ch8", 700);
 
 	gDone = false;
 	uint64_t lastCounter = SDL_GetPerformanceCounter();

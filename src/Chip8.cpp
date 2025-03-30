@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include <cassert>
+#include <random>
 
 #ifdef DEBUG
 #include <imgui.h>
@@ -36,6 +37,8 @@ const std::array<uint8_t, 80> gDefaultFont =
 	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
+constexpr uint8_t gDefaultFontStartAddress = 0x50;
+constexpr uint8_t gDefaultFontHeight = 5;
 
 std::unordered_map<uint8_t, uint16_t> gOpcodeLookup =
 {
@@ -62,8 +65,8 @@ CHIP::CHIP()
 		{0x9000, [this](const uint16_t opcode) { OpCode_SkipVxVyNotEqual(opcode); }},	// 9XY0
 		{0x7000, [this](const uint16_t opcode) { OpCode_Add(opcode); }},				// 7XNN
 
-		//{0xB000, [this](const uint16_t opcode) { OpCode_JumpWithOffset(opcode); }},		// BNNN
-		//{0xC000, [this](const uint16_t opcode) { OpCode_Random(opcode); }},				// CXNN
+		{0xB000, [this](const uint16_t opcode) { OpCode_JumpWithOffset(opcode); }},		// BNNN
+		{0xC000, [this](const uint16_t opcode) { OpCode_Random(opcode); }},				// CXNN
 
 		{0x8000, [this](const uint16_t opcode) { OpCode_Set(opcode); }},				// 8XY0
 		{0x8001, [this](const uint16_t opcode) { OpCode_BinaryOR(opcode); }},			// 8XY1
@@ -84,14 +87,14 @@ CHIP::CHIP()
 
 		{0xF01E, [this](const uint16_t opcode) { OpCode_AddToIndexRegister(opcode); }},	// FX1E
 		{0xF00A, [this](const uint16_t opcode) { OpCode_GetKey(opcode); }},				// FX0A
-		//{0xF029, [this](const uint16_t opcode) { OpCode_SetFontCharacter(opcode); }},	// FX29
-		//{0xF033, [this](const uint16_t opcode) { OpCode_BinaryToDecimal(opcode); }},	// FX33
+		{0xF029, [this](const uint16_t opcode) { OpCode_SetFontCharacter(opcode); }},	// FX29
+		{0xF033, [this](const uint16_t opcode) { OpCode_BinaryToDecimal(opcode); }},	// FX33
 		
-		{0xF055, [this](const uint16_t opcode) { OpCode_StoreMemory(opcode); }},	// FX55
-		{0xF065, [this](const uint16_t opcode) { OpCode_LoadMemory(opcode); }},	// FX65
+		{0xF055, [this](const uint16_t opcode) { OpCode_StoreMemory(opcode); }},		// FX55
+		{0xF065, [this](const uint16_t opcode) { OpCode_LoadMemory(opcode); }},			// FX65
 	}
 {
-	memcpy(&mMemory[0x050], &gDefaultFont, sizeof(gDefaultFont));
+	memcpy(&mMemory[gDefaultFontStartAddress], &gDefaultFont, sizeof(gDefaultFont));
 }
 
 void CHIP::LoadROM(const char* romPath, uint16_t cyclesPerSecond /* = 700 */)
@@ -117,7 +120,8 @@ void CHIP::Update(const double deltaTime)
 	mCycleTimer += deltaTime;
 
 	// Timers need to be decremented by 1 every second
-	const int timerDecrement = static_cast<int>(mTimer);
+	const int timerDecrement = static_cast<int>(std::floor(mTimer));
+	// Clamp to avoid conditionals
 	mDelayTimer = std::clamp(mDelayTimer - timerDecrement, 0, 255);
 	mSoundTimer = std::clamp(mSoundTimer - timerDecrement, 0, 255);
 	mTimer -= timerDecrement;
@@ -290,8 +294,9 @@ void CHIP::OpCode_Display(uint16_t instruction)
 
 	const uint8_t xPos = mVariableRegisters[GetX(instruction)] % DISPLAY_WIDTH;
 	const uint8_t yPos = mVariableRegisters[GetY(instruction)] % DISPLAY_HEIGHT;
+	const uint8_t n = GetN(instruction);
 
-	for (uint8_t row = 0; row < GetN(instruction); ++row)
+	for (uint8_t row = 0; row < n; ++row)
 	{
 		for (uint8_t col = 0; col < 8; ++col)
 		{
@@ -306,7 +311,7 @@ void CHIP::OpCode_Display(uint16_t instruction)
 			const uint32_t collision = spriteMask & *displayPixel;
 			
 			// by shifting collision to the right, we end up with 1 bit that is either 0 or 1
-			const bool bothPixelsOn = (collision >> 31) & 1;
+			const uint8_t bothPixelsOn = (collision >> 31) & 1;
 
 			// Bitwise OR'ing it means VF will be set to 1 if VF is currently zero
 			mVariableRegisters[0xF] |= bothPixelsOn;
@@ -382,6 +387,17 @@ void CHIP::OpCode_Add(uint16_t instruction)
 void CHIP::OpCode_JumpWithOffset(uint16_t instruction)
 {
 	// TODO: Ambiguous instruction, add support for toggling quirk
+	mProgramCounter = GetNNN(instruction) + mVariableRegisters[0];
+}
+
+void CHIP::OpCode_Random(uint16_t instruction)
+{
+	// This instruction generates a random number, binary ANDs it with the value NN, and puts the result in VX.
+	std::random_device rd;  // a seed source for the random number engine
+	std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
+
+	const uint8_t randomNumber = gen();
+	mVariableRegisters[GetX(instruction)] = randomNumber & GetNN(instruction);;
 }
 
 void CHIP::OpCode_Set(uint16_t instruction)
@@ -531,6 +547,25 @@ void CHIP::OpCode_GetKey(uint16_t instruction)
 void CHIP::OpCode_SetFontCharacter(uint16_t instruction)
 {
 	// The index register I is set to the address of the hexadecimal character in VX.
+	const uint8_t fontIndex = mVariableRegisters[GetX(instruction)] * gDefaultFontHeight;
+
+	mIndexRegister = mMemory[gDefaultFontStartAddress + fontIndex];
+}
+
+void CHIP::OpCode_BinaryToDecimal(uint16_t instruction)
+{
+	// Takes the number in vx and converts it to three decimal digits, storing these digits in memory at the mIndexRegister.
+	uint8_t input = mVariableRegisters[GetX(instruction)];
+	uint8_t memIndex = mIndexRegister;
+
+	while (input > 0)
+	{
+		const uint8_t digit = input % 10;
+		mMemory[memIndex] = digit;
+
+		++memIndex;
+		input /= 10;
+	}
 }
 
 void CHIP::OpCode_StoreMemory(uint16_t instruction)
